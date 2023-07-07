@@ -1,18 +1,11 @@
-require 'logger'
-
 class TokenBucket
-  attr_reader :rate, :capacity, :tokens, :last_refill, :last_used
+  attr_reader :last_used, :rate, :capacity, :tokens
 
-  # @param [Numeric] rate can be fractional, e.g. 0.5 tokens per second
   def initialize(rate:, capacity:)
-    @rate = rate
     @capacity = capacity
+    @rate = rate
     @tokens = capacity
-    @last_refill = Time.now
-    @last_used = Time.now
-    @logger = ::Logger.new(STDOUT)
-    @logger.level = ::Logger::DEBUG
-    @logger.debug { "Initialized TokenBucket with rate: #{rate} and capacity: #{capacity}" }
+    @last_refill = @last_used = Time.now
   end
 
   def consume
@@ -28,23 +21,17 @@ class TokenBucket
 
   def time_until_next_token
     refill
-    if @tokens < @capacity
-      now = Time.now
-      elapsed = now - @last_refill
-      time_until_next_token = (1.0 / rate) - elapsed
-      @logger.debug { "time_until_next_token: #{time_until_next_token}" }
-      time_until_next_token
-    else
-      0
-    end
+    @tokens > 0 ? 0 : (@last_refill + (1 / @rate)) - Time.now
   end
 
   def set_rate(new_rate)
+    refill
     @rate = new_rate
   end
 
   def set_capacity(new_capacity)
     @capacity = new_capacity
+    refill
   end
 
   private
@@ -52,9 +39,11 @@ class TokenBucket
   def refill
     now = Time.now
     elapsed = now - @last_refill
-    added_tokens = (elapsed * rate).floor
-    @tokens += added_tokens
-    @tokens = capacity if @tokens > capacity
-    @last_refill = now
+    refill_tokens = (@rate * elapsed).floor
+
+    if refill_tokens > 0
+      @tokens = [@tokens + refill_tokens, @capacity].min
+      @last_refill = now
+    end
   end
 end

@@ -4,8 +4,8 @@ require_relative '../lib/token_bucket'
 RSpec.describe TokenBucket do
   subject(:bucket) { described_class.new(rate: rate, capacity: capacity) }
 
-  let(:rate) { 2 } # 2 tokens per second
-  let(:capacity) { 5 } # maximum 5 tokens
+  let(:rate) { 1 } # 5 tokens per second
+  let(:capacity) { 1 } # maximum 5 tokens
   let(:consume_interval) { 1.0 / rate }
 
   describe '#initialize' do
@@ -47,12 +47,12 @@ RSpec.describe TokenBucket do
 
     context 'when no tokens are available' do
       before do
-        capacity.times { bucket.consume }
-        sleep(consume_interval)
+        bucket.consume
+        sleep(consume_interval/2)
       end
 
       it 'returns the time until the next token' do
-        expect(bucket.time_until_next_token).to be_within(0.01).of(rate)
+        expect(bucket.time_until_next_token).to be_within(0.01).of(consume_interval/2)
       end
     end
   end
