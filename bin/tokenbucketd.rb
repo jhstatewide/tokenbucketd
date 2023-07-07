@@ -61,5 +61,31 @@ Usage: tokenbucketd [OPTION]...
   end
 end
 
+# check all the arguments
+if port < 1 || port > 65535
+  puts "Invalid port: #{port}"
+  exit 1
+end
+
+if rate < 0.0
+  puts "Invalid rate: #{rate}"
+  exit 1
+end
+
+if capacity < 1
+  puts "Invalid capacity: #{capacity}"
+  exit 1
+end
+
+if gc_interval < 1
+  puts "Invalid gc_interval: #{gc_interval}"
+  exit 1
+end
+
+if gc_threshold < 1
+  puts "Invalid gc_threshold: #{gc_threshold}"
+  exit 1
+end
+
 server = Server.new(port: port, rate: rate, capacity: capacity, gc_interval: gc_interval, gc_threshold: gc_threshold)
 server.start

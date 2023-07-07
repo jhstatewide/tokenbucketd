@@ -21,6 +21,8 @@ class Server
     @buckets = Hash.new { |h, k| h[k] = { bucket: TokenBucket.new(rate: rate, capacity: capacity), mutex: Mutex.new } }
     @gc_interval = gc_interval
     @gc_threshold = gc_threshold
+    @rate = rate
+    @capacity = capacity
     start_gc_thread
     @logger = ::Logger.new(STDOUT)
     @logger.level = ::Logger::DEBUG
@@ -30,6 +32,10 @@ class Server
 
   def start
     @logger.info { "Starting server on port #{@port}" }
+    @logger.info { "Rate: #{@rate} tokens per second" }
+    @logger.info { "Capacity: #{@capacity} tokens" }
+    @logger.info { "GC interval: #{@gc_interval} seconds" }
+    @logger.info { "GC threshold: #{@gc_threshold} seconds" }
     loop do
       Thread.start(@server.accept) do |client|
         @logger.info { "Accepted connection from #{client.pretty_print}" }

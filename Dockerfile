@@ -8,4 +8,4 @@ RUN bundle install
 COPY . ./
 USER app
 EXPOSE 4444
-CMD ["ruby", "--mjit", "--mjit-verbose=99", "--mjit-call-threshold=10", "./bin/tokenbucketd.rb"]
+ENTRYPOINT ["ruby", "--mjit", "./bin/tokenbucketd.rb"]
