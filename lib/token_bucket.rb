@@ -29,7 +29,11 @@ class TokenBucket
   def time_until_next_token
     refill
     if @tokens < @capacity
-      (@capacity - @tokens) / @rate
+      now = Time.now
+      elapsed = now - @last_refill
+      time_until_next_token = (1.0 / rate) - elapsed
+      @logger.debug { "time_until_next_token: #{time_until_next_token}" }
+      time_until_next_token
     else
       0
     end

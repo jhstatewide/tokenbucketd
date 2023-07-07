@@ -35,7 +35,7 @@ class Server
 
       command, bucket_name, parameter = line.split
       bucket_info = @buckets[bucket_name]
-      case command.upcase
+      case command&.upcase
       when "CONSUME"
         if bucket_info[:mutex].synchronize { bucket_info[:bucket].consume }
           client.puts "OK"
