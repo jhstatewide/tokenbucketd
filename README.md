@@ -66,7 +66,7 @@ $ docker run -p 2000:2000 tokenbucketd --port 2000 --rate 10 --capacity 100 --gc
 ## Client
 
 The protocol is a line based protocol, which should be easy to integrate.
-You can find an example client in ./lib/client.rb.
+You can find an example client in ./lib/client.rb, and examples for other languages in ./example_clients.
 
 Clients can send commands to the server via TCP:
 
@@ -84,4 +84,5 @@ Feel free to open an issue or submit a pull request if you want to improve this 
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
