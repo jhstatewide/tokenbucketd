@@ -2,64 +2,13 @@ require 'socket'
 require 'thread'
 require 'logger'
 
-class TokenBucket
-  attr_reader :rate, :capacity, :tokens, :last_refill, :last_used
-
-  def initialize(rate, capacity)
-    @rate = rate
-    @capacity = capacity
-    @tokens = capacity
-    @last_refill = Time.now
-    @last_used = Time.now
-    @logger = ::Logger.new(STDOUT)
-    @logger.level= ::Logger::DEBUG
-    @logger.debug { "Initialized TokenBucket with rate: #{rate} and capacity: #{capacity}" }
-  end
-
-  def consume
-    refill
-    if @tokens > 0
-      @tokens -= 1
-      @last_used = Time.now
-      true
-    else
-      false
-    end
-  end
-
-  def time_until_next_token
-    refill
-    if @tokens > 0
-      0
-    else
-      (1.0 / rate) - (Time.now - last_refill)
-    end
-  end
-
-  def set_rate(new_rate)
-    @rate = new_rate
-  end
-
-  def set_capacity(new_capacity)
-    @capacity = new_capacity
-  end
-
-  private
-
-  def refill
-    now = Time.now
-    elapsed = now - @last_refill
-    @tokens += elapsed * rate
-    @tokens = capacity if @tokens > capacity
-    @last_refill = now
-  end
-end
+require_relative 'token_bucket.rb'
 
 class Server
-  def initialize(port, rate, capacity, gc_interval, gc_threshold)
+  def initialize(port:, rate:, capacity:, gc_interval:, gc_threshold:)
     @server = TCPServer.new(port)
     @port = port
-    @buckets = Hash.new { |h, k| h[k] = { bucket: TokenBucket.new(rate, capacity), mutex: Mutex.new } }
+    @buckets = Hash.new { |h, k| h[k] = { bucket: TokenBucket.new(rate: rate, capacity: capacity), mutex: Mutex.new } }
     @gc_interval = gc_interval
     @gc_threshold = gc_threshold
     start_gc_thread
