@@ -4,6 +4,15 @@ require 'logger'
 
 require_relative 'token_bucket.rb'
 
+# make a pretty print for TCPSocket
+class TCPSocket
+  def pretty_print
+    "#{peeraddr[2]}:#{peeraddr[1]}"
+  end
+end
+
+# a server that implements the token bucket algorithm
+
 class Server
   def initialize(port:, rate:, capacity:, gc_interval:, gc_threshold:)
     @server = TCPServer.new(port)
@@ -20,7 +29,7 @@ class Server
     @logger.info { "Starting server on port #{@port}" }
     loop do
       Thread.start(@server.accept) do |client|
-        @logger.debug { "Accepted connection from #{client}" }
+        @logger.debug { "Accepted connection from #{client.pretty_print}" }
         handle_client(client)
       end
     end
@@ -30,7 +39,7 @@ class Server
 
   def handle_client(client)
     while (line = client.gets)
-      @logger.debug { "Received #{line.chomp} from #{client}" }
+      @logger.debug { "Received #{line.chomp} from #{client.pretty_print}" }
       return unless line && line.instance_of?(String)
 
       command, bucket_name, parameter = line.split
