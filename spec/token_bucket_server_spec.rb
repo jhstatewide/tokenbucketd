@@ -16,6 +16,7 @@ RSpec.describe TokenBucketServer do
 
   before do
     allow(tcp_client).to receive(:puts)
+    server.log_level = ::Logger::ERROR
   end
 
   describe '#LOCK' do

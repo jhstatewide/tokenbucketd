@@ -59,6 +59,10 @@ class TokenBucketServer
     @clients.each(&:close)
   end
 
+  def log_level=(level)
+    @logger.level = level
+  end
+
   private
 
   def bucket_stats(bucket_name)

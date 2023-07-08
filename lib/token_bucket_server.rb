@@ -31,6 +31,10 @@ class TokenBucketServer
     end
   end
 
+  def log_level=(level)
+    @logger.level = level
+  end
+
   def destroy!
     @logger.info { "Shutting down server" }
     @server.close

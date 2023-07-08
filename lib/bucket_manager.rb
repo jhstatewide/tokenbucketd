@@ -1,3 +1,5 @@
+require_relative './token_bucket'
+
 # A class to handle bucket-related operations
 class BucketManager
   attr_reader :buckets
