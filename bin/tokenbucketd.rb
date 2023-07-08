@@ -1,4 +1,4 @@
-require_relative '../lib/tokenbucket_server'
+require_relative '../lib/old/tokenbucket_server'
 
 require 'getoptlong'
 
@@ -87,5 +87,5 @@ if gc_threshold < 1
   exit 1
 end
 
-server = Server.new(port: port, rate: rate, capacity: capacity, gc_interval: gc_interval, gc_threshold: gc_threshold)
+server = TokenBucketServer.new(port: port, rate: rate, capacity: capacity, gc_interval: gc_interval, gc_threshold: gc_threshold)
 server.start

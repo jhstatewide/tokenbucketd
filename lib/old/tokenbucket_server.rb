@@ -2,7 +2,7 @@ require 'socket'
 require 'thread'
 require 'logger'
 
-require_relative './errors'
+require_relative './/errors'
 require_relative './token_bucket'
 
 # make a pretty print for TCPSocket
@@ -14,7 +14,7 @@ end
 
 # a server that implements the token bucket algorithm
 
-class Server
+class TokenBucketServer
   def initialize(port:, rate:, capacity:, gc_interval:, gc_threshold:, max_buckets: 65535)
     @server = TCPServer.new(port)
     @port = port
