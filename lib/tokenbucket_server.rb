@@ -63,9 +63,7 @@ class Server
 
   def bucket_stats(bucket_name)
     bucket_info = @buckets[bucket_name]
-    bucket_info[:mutex].synchronize do
-      "tokens=#{bucket_info[:bucket].tokens},rate=#{bucket_info[:bucket].rate},capacity=#{bucket_info[:bucket].capacity}"
-    end
+    "tokens=#{bucket_info[:bucket].tokens},rate=#{bucket_info[:bucket].rate},capacity=#{bucket_info[:bucket].capacity}"
   end
 
   def valid_bucket_name?(bucket_name)
@@ -105,8 +103,13 @@ class Server
             if bucket_info[:locked_until] && bucket_info[:locked_until] > Time.now
               client.puts "ERROR Bucket #{bucket_name} is already locked"
             else
-              bucket_info[:locked_until] = Time.now + @lock_duration
-              client.puts "OK LOCKED #{bucket_name} for #{@lock_duration} seconds"
+              if bucket_info[:bucket].consume
+                bucket_info[:locked_until] = Time.now + @lock_duration
+                client.puts "OK LOCKED #{bucket_name} for #{@lock_duration} seconds"
+              else
+                wait_time = bucket_info[:bucket].time_until_next_token
+                client.puts "WAIT #{wait_time} #{bucket_stats(bucket_name)}"
+              end
             end
           end
         when "RELEASE"
@@ -119,30 +122,17 @@ class Server
           bucket_info = possibly_allocate_bucket(bucket_name)
           next if bucket_info.nil?
 
-          # require to have a bucket name
-          if bucket_name.nil?
-            client.puts "ERROR CONSUME requires a bucket name"
-            next
-          end
-          # also make sure it's a valid bucket name. it has to be a unicode string
-          # with no spaces
-          unless valid_bucket_name?(bucket_name)
-            client.puts "ERROR Invalid bucket name"
-            next
-          end
-
-          ensure_within_bucket_limit
-
-          if bucket_info[:mutex].synchronize { bucket_info[:bucket].consume && (bucket_info[:locked_until].nil? || bucket_info[:locked_until] < Time.now) }
-            # If locked and not expired, do not consume
+          bucket_info[:mutex].synchronize do
             if bucket_info[:locked_until] && bucket_info[:locked_until] > Time.now
               client.puts "WAIT #{bucket_info[:locked_until] - Time.now} Bucket #{bucket_name} is locked"
             else
-              client.puts "OK #{bucket_stats(bucket_name)}"
+              if bucket_info[:bucket].consume
+                client.puts "OK #{bucket_stats(bucket_name)}"
+              else
+                wait_time = bucket_info[:bucket].time_until_next_token
+                client.puts "WAIT #{wait_time} #{bucket_stats(bucket_name)}"
+              end
             end
-          else
-            wait_time = bucket_info[:mutex].synchronize { bucket_info[:bucket].time_until_next_token }
-            client.puts "WAIT #{wait_time} #{bucket_stats(bucket_name)}"
           end
         when "RATE"
           bucket_info = possibly_allocate_bucket(bucket_name)
