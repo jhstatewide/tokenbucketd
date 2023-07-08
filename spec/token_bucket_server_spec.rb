@@ -6,55 +6,47 @@ RSpec.describe Server do
 
   let(:rate) { 1 }
   let(:capacity) { 1 }
-  let(:lock_duration) { 5 } # you may need to expose lock_duration in your Server class for this test
+  let(:lock_duration) { 5 }
   let(:bucket_name) { 'bucket1' }
-
-  # we will need a mock "tcp client" to simulate a client sending commands to the server
-  let(:tcp_client) { double('tcp_client') }
+  let(:tcp_client) { double('tcp_client', peeraddr: ['AF_INET', 80, 'localhost'], close: nil, closed?: false, eof?: false, pretty_print: 'tcp_client') }
 
   after(:each) do
     server.destroy!
   end
 
+  before do
+    allow(tcp_client).to receive(:puts)
+  end
+
   describe '#LOCK' do
-    before do
-      allow(tcp_client).to receive(:peeraddr).and_return(['AF_INET', 80, 'localhost'])
-      allow(tcp_client).to receive(:puts)
-      allow(tcp_client).to receive(:close)
-      allow(tcp_client).to receive(:closed?).and_return(false)
-      allow(tcp_client).to receive(:eof?).and_return(false)
-      allow(tcp_client).to receive(:pretty_print).and_return('tcp_client')
+    context 'when bucket is not locked' do
+      it 'locks the bucket' do
+        allow(tcp_client).to receive(:gets).and_return("LOCK #{bucket_name}", nil)
+
+        thread = Thread.new { subject.send(:handle_client, tcp_client); sleep }
+
+        sleep(0.1)
+
+        subject.send(:handle_client, tcp_client)
+        expect(server.buckets[bucket_name][:locked_until]).to be > Time.now
+      end
     end
 
-    it 'locks the bucket' do
-      allow(tcp_client).to receive(:gets).and_return("LOCK #{bucket_name}", nil)
+    context 'when bucket is already locked' do
+      it 'returns an error' do
+        allow(tcp_client).to receive(:gets).and_return("LOCK #{bucket_name}", "LOCK #{bucket_name}", nil)
 
-      # Start a thread to send the command and then sleep indefinitely
-      thread = Thread.new do
+        expect(tcp_client).to receive(:puts).with(/OK LOCKED/).ordered
+        expect(tcp_client).to receive(:puts).with(/ERROR Bucket #{bucket_name} is already locked/).ordered
+
         subject.send(:handle_client, tcp_client)
-        sleep
       end
-
-      # Wait for a short time to ensure the command is processed
-      sleep(0.1)
-
-      subject.send(:handle_client, tcp_client)
-      expect(server.buckets[bucket_name][:locked_until]).to be > Time.now
     end
   end
 
   describe '#RELEASE' do
     before do
-      allow(tcp_client).to receive(:peeraddr).and_return(['AF_INET', 80, 'localhost'])
-      allow(tcp_client).to receive(:puts)
-      allow(tcp_client).to receive(:close)
-      allow(tcp_client).to receive(:closed?).and_return(false)
-      allow(tcp_client).to receive(:eof?).and_return(false)
-      allow(tcp_client).to receive(:pretty_print).and_return('tcp_client')
-
-      # Initialize the bucket with a lock
       server.buckets[bucket_name] = { locked_until: Time.now + lock_duration, mutex: Mutex.new }
-
       allow(tcp_client).to receive(:gets).and_return("RELEASE #{bucket_name}", nil)
     end
 
@@ -67,69 +59,28 @@ RSpec.describe Server do
 
   describe '#CONSUME' do
     before do
-      allow(tcp_client).to receive(:peeraddr).and_return(['AF_INET', 80, 'localhost'])
-      allow(tcp_client).to receive(:puts)
-      allow(tcp_client).to receive(:close)
-      allow(tcp_client).to receive(:closed?).and_return(false)
-      allow(tcp_client).to receive(:eof?).and_return(false)
-      allow(tcp_client).to receive(:pretty_print).and_return('tcp_client')
-
-      # Initialize the bucket with a lock
-      server.buckets[bucket_name] = { locked_until: Time.now + lock_duration, mutex: Mutex.new, bucket: TokenBucket.new(rate: rate, capacity: capacity) }
-
+      server.buckets[bucket_name] = { locked_until: locked_until, mutex: Mutex.new, bucket: TokenBucket.new(rate: rate, capacity: capacity) }
       allow(tcp_client).to receive(:gets).and_return("CONSUME #{bucket_name}", nil)
     end
 
-    it 'fails when bucket is locked' do
-      expect(tcp_client).to receive(:puts).with(/WAIT/)
+    context 'when bucket is locked' do
+      let(:locked_until) { Time.now + lock_duration }
 
-      subject.send(:handle_client, tcp_client)
+      it 'returns a wait message' do
+        expect(tcp_client).to receive(:puts).with(/WAIT/)
+
+        subject.send(:handle_client, tcp_client)
+      end
+    end
+
+    context 'when bucket is not locked' do
+      let(:locked_until) { nil }
+
+      it 'consumes successfully' do
+        expect(tcp_client).to receive(:puts).with(/OK/)
+
+        subject.send(:handle_client, tcp_client)
+      end
     end
   end
-
-  describe '#CONSUME' do
-    before do
-      allow(tcp_client).to receive(:peeraddr).and_return(['AF_INET', 80, 'localhost'])
-      allow(tcp_client).to receive(:puts)
-      allow(tcp_client).to receive(:close)
-      allow(tcp_client).to receive(:closed?).and_return(false)
-      allow(tcp_client).to receive(:eof?).and_return(false)
-      allow(tcp_client).to receive(:pretty_print).and_return('tcp_client')
-
-      # Initialize the bucket without a lock
-      server.buckets[bucket_name] = { locked_until: nil, mutex: Mutex.new, bucket: TokenBucket.new(rate: rate, capacity: capacity) }
-
-      allow(tcp_client).to receive(:gets).and_return("CONSUME #{bucket_name}", nil)
-    end
-
-    it 'succeeds when bucket is unlocked' do
-      expect(tcp_client).to receive(:puts).with(/OK/)
-
-      subject.send(:handle_client, tcp_client)
-    end
-  end
-
-  describe '#LOCK' do
-    before do
-      allow(tcp_client).to receive(:peeraddr).and_return(['AF_INET', 80, 'localhost'])
-      allow(tcp_client).to receive(:puts)
-      allow(tcp_client).to receive(:close)
-      allow(tcp_client).to receive(:closed?).and_return(false)
-      allow(tcp_client).to receive(:eof?).and_return(false)
-      allow(tcp_client).to receive(:pretty_print).and_return('tcp_client')
-    end
-
-    it 'fails when bucket is already locked' do
-      allow(tcp_client).to receive(:gets).and_return("LOCK #{bucket_name}", "LOCK #{bucket_name}", nil)
-
-      # Expect the client to receive the 'locked' message only on the second attempt to lock
-      expect(tcp_client).to receive(:puts).with(/OK LOCKED/).ordered
-      expect(tcp_client).to receive(:puts).with(/ERROR Bucket #{bucket_name} is already locked/).ordered
-
-      subject.send(:handle_client, tcp_client)
-    end
-
-  end
-
-
 end
