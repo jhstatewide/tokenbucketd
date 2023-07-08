@@ -7,6 +7,7 @@ RSpec.describe TokenBucket do
   let(:rate) { 1 } # 5 tokens per second
   let(:capacity) { 1 } # maximum 5 tokens
   let(:consume_interval) { 1.0 / rate }
+  let(:lock_duration) { 5 }  # you may need to expose lock_duration in your Server class for this test
 
   describe '#initialize' do
     it 'initializes with given rate and capacity' do

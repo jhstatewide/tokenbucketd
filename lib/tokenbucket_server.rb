@@ -18,7 +18,7 @@ class Server
   def initialize(port:, rate:, capacity:, gc_interval:, gc_threshold:, max_buckets: 65535)
     @server = TCPServer.new(port)
     @port = port
-    @buckets = Hash.new { |h, k| h[k] = { bucket: TokenBucket.new(rate: rate, capacity: capacity), mutex: Mutex.new } }
+    @buckets = Hash.new { |h, k| h[k] = { bucket: TokenBucket.new(rate: rate, capacity: capacity), mutex: Mutex.new, locked_until: nil } }
     @gc_interval = gc_interval
     @gc_threshold = gc_threshold
     @rate = rate
@@ -28,6 +28,7 @@ class Server
     @logger.level = ::Logger::DEBUG
     @clients = []
     @max_buckets = max_buckets
+    @lock_duration = 10
   end
 
   def start
@@ -45,6 +46,17 @@ class Server
         @clients.delete(client)
       end
     end
+  end
+
+  def buckets
+    @buckets
+  end
+
+  def destroy!
+    @logger.info { "Shutting down server" }
+    @server.close
+    @gc_thread&.kill
+    @clients.each(&:close)
   end
 
   private
@@ -70,9 +82,7 @@ class Server
   end
 
   def possibly_allocate_bucket(bucket_name)
-    if @buckets.size >= @max_buckets
-      raise TooManyBucketsError
-    end
+    ensure_within_bucket_limit
 
     unless valid_bucket_name?(bucket_name)
       raise InvalidBucketName
@@ -89,6 +99,22 @@ class Server
 
         command, bucket_name, parameter = line.split
         case command&.upcase
+        when "LOCK"
+          bucket_info = possibly_allocate_bucket(bucket_name)
+          bucket_info[:mutex].synchronize do
+            if bucket_info[:locked_until] && bucket_info[:locked_until] > Time.now
+              client.puts "ERROR Bucket #{bucket_name} is already locked"
+            else
+              bucket_info[:locked_until] = Time.now + @lock_duration
+              client.puts "OK LOCKED #{bucket_name} for #{@lock_duration} seconds"
+            end
+          end
+        when "RELEASE"
+          bucket_info = possibly_allocate_bucket(bucket_name)
+          bucket_info[:mutex].synchronize do
+            bucket_info[:locked_until] = nil
+            client.puts "OK RELEASED #{bucket_name}"
+          end
         when "CONSUME"
           bucket_info = possibly_allocate_bucket(bucket_name)
           next if bucket_info.nil?
@@ -107,9 +133,13 @@ class Server
 
           ensure_within_bucket_limit
 
-          if bucket_info[:mutex].synchronize { bucket_info[:bucket].consume }
-            # put back to the client the number of tokens left and some stats
-            client.puts "OK #{bucket_stats(bucket_name)}"
+          if bucket_info[:mutex].synchronize { bucket_info[:bucket].consume && (bucket_info[:locked_until].nil? || bucket_info[:locked_until] < Time.now) }
+            # If locked and not expired, do not consume
+            if bucket_info[:locked_until] && bucket_info[:locked_until] > Time.now
+              client.puts "WAIT #{bucket_info[:locked_until] - Time.now} Bucket #{bucket_name} is locked"
+            else
+              client.puts "OK #{bucket_stats(bucket_name)}"
+            end
           else
             wait_time = bucket_info[:mutex].synchronize { bucket_info[:bucket].time_until_next_token }
             client.puts "WAIT #{wait_time} #{bucket_stats(bucket_name)}"
@@ -150,7 +180,7 @@ class Server
   end
 
   def start_gc_thread
-    Thread.new do
+    @gc_thread = Thread.new do
       loop do
         sleep @gc_interval
         now = Time.now

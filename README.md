@@ -75,6 +75,8 @@ Clients can send commands to the server via TCP:
 - `CAPACITY bucket_name new_capacity`: sets the maximum capacity for the specified bucket.
 - `STATS bucket_name`: fetches the current statistics of the specified bucket.
 - `STATUS`: fetches the status of all the buckets and connected clients.
+- `LOCK bucket_name`: locks the specified bucket. This prevents other clients from consuming tokens from the bucket. If the bucket is already locked, the server responds with a `WAIT` message, along with how many seconds the client should wait before trying again.
+- `RELEASE bucket_name`: releases the specified bucket. This allows other clients to consume tokens from the bucket.
 
 If an error occurs, the server will return a message starting with `ERROR`.
 
