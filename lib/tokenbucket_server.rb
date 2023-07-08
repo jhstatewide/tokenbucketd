@@ -28,7 +28,7 @@ class Server
     @logger.level = ::Logger::DEBUG
     @clients = []
     @max_buckets = max_buckets
-    @lock_duration = 10
+    @lock_duration = 300
   end
 
   def start
@@ -105,7 +105,7 @@ class Server
             else
               if bucket_info[:bucket].consume
                 bucket_info[:locked_until] = Time.now + @lock_duration
-                client.puts "OK LOCKED #{bucket_name} for #{@lock_duration} seconds"
+                client.puts "OK LOCKED #{bucket_name}. Will force unlock in #{@lock_duration} seconds."
               else
                 wait_time = bucket_info[:bucket].time_until_next_token
                 client.puts "WAIT #{wait_time} #{bucket_stats(bucket_name)}"
