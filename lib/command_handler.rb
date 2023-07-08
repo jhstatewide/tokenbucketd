@@ -36,15 +36,15 @@ class CommandHandler
 
   def handle_lock(bucket_name)
     bucket_info = @bucket_manager.get_bucket(bucket_name)
-    bucket_info[:mutex].synchronize do
-      if bucket_info[:locked_until] && bucket_info[:locked_until] > Time.now
+    bucket_info.mutex.synchronize do
+      if bucket_info.locked_until && bucket_info.locked_until > Time.now
         @client.puts "ERROR Bucket #{bucket_name} is already locked"
       else
-        if bucket_info[:bucket].consume
-          bucket_info[:locked_until] = Time.now + @lock_duration
+        if bucket_info.bucket.consume
+          bucket_info.locked_until = Time.now + @lock_duration
           @client.puts "OK LOCKED #{bucket_name}. Will force unlock in #{@lock_duration} seconds."
         else
-          wait_time = bucket_info[:bucket].time_until_next_token
+          wait_time = bucket_info.bucket.time_until_next_token
           @client.puts "WAIT #{wait_time} #{@bucket_manager.bucket_stats(bucket_name)}"
         end
       end
@@ -53,22 +53,22 @@ class CommandHandler
 
   def handle_release(bucket_name)
     bucket_info = @bucket_manager.get_bucket(bucket_name)
-    bucket_info[:mutex].synchronize do
-      bucket_info[:locked_until] = nil
+    bucket_info.mutex.synchronize do
+      bucket_info.locked_until = nil
       @client.puts "OK RELEASED #{bucket_name}"
     end
   end
 
   def handle_consume(bucket_name)
     bucket_info = @bucket_manager.get_bucket(bucket_name)
-    bucket_info[:mutex].synchronize do
-      if bucket_info[:locked_until] && bucket_info[:locked_until] > Time.now
-        @client.puts "WAIT #{bucket_info[:locked_until] - Time.now} Bucket #{bucket_name} is locked"
+    bucket_info.mutex.synchronize do
+      if bucket_info.locked_until && bucket_info.locked_until > Time.now
+        @client.puts "WAIT #{bucket_info.locked_until - Time.now} Bucket #{bucket_name} is locked"
       else
-        if bucket_info[:bucket].consume
+        if bucket_info.bucket.consume
           @client.puts "OK #{@bucket_manager.bucket_stats(bucket_name)}"
         else
-          wait_time = bucket_info[:bucket].time_until_next_token
+          wait_time = bucket_info.bucket.time_until_next_token
           @client.puts "WAIT #{wait_time} #{@bucket_manager.bucket_stats(bucket_name)}"
         end
       end
@@ -78,14 +78,14 @@ class CommandHandler
   def handle_rate(bucket_name, parameter)
     bucket_info = @bucket_manager.get_bucket(bucket_name)
     new_rate = parameter.to_f
-    bucket_info[:mutex].synchronize { bucket_info[:bucket].set_rate(new_rate) }
+    bucket_info.mutex.synchronize { bucket_info.bucket.set_rate(new_rate) }
     @client.puts "OK RATE set to #{new_rate} for bucket #{bucket_name}"
   end
 
   def handle_capacity(bucket_name, parameter)
     bucket_info = @bucket_manager.get_bucket(bucket_name)
     new_capacity = parameter.to_i
-    bucket_info[:mutex].synchronize { bucket_info[:bucket].set_capacity(new_capacity) }
+    bucket_info.mutex.synchronize { bucket_info.bucket.set_capacity(new_capacity) }
     @client.puts "OK CAPACITY set to #{new_capacity} for bucket #{bucket_name}"
   end
 

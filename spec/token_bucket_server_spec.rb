@@ -29,7 +29,7 @@ RSpec.describe TokenBucketServer do
         sleep(0.1)
 
         subject.send(:handle_client, tcp_client)
-        expect(server.buckets[bucket_name][:locked_until]).to be > Time.now
+        expect(server.buckets[bucket_name].locked_until).to be > Time.now
       end
     end
 
@@ -47,20 +47,21 @@ RSpec.describe TokenBucketServer do
 
   describe '#RELEASE' do
     before do
-      server.buckets[bucket_name] = { locked_until: Time.now + lock_duration, mutex: Mutex.new }
+      bucket_info = BucketInfo.new(bucket_name, Mutex.new, Time.now + lock_duration)
+      server.buckets[bucket_name] = bucket_info
       allow(tcp_client).to receive(:gets).and_return("RELEASE #{bucket_name}", nil)
     end
 
     it 'releases the bucket' do
       subject.send(:handle_client, tcp_client)
 
-      expect(server.buckets[bucket_name][:locked_until]).to be_nil
+      expect(server.buckets[bucket_name].locked_until).to be_nil
     end
   end
 
   describe '#CONSUME' do
     before do
-      server.buckets[bucket_name] = { locked_until: locked_until, mutex: Mutex.new, bucket: TokenBucket.new(rate: rate, capacity: capacity) }
+      server.buckets[bucket_name] = BucketInfo.new(TokenBucket.new(rate: rate, capacity: capacity), Mutex.new, locked_until)
       allow(tcp_client).to receive(:gets).and_return("CONSUME #{bucket_name}", nil)
     end
 

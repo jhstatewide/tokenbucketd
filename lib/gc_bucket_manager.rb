@@ -13,7 +13,7 @@ class GCBucketManager
         sleep @gc_interval
         now = Time.now
         @buckets.each do |name, info|
-          if now - info[:bucket].last_used > @gc_threshold
+          if now - info.bucket.last_used > @gc_threshold
             @logger.info { "Removing bucket #{name} from memory" }
             @buckets.delete(name)
           end

@@ -1,11 +1,23 @@
 require_relative './token_bucket'
 
+class BucketInfo
+  attr_reader :bucket, :mutex
+  attr_accessor :locked_until
+
+  def initialize(bucket, mutex, locked_until)
+    @bucket = bucket
+    @mutex = mutex
+    @locked_until = locked_until
+  end
+end
+
+
 # A class to handle bucket-related operations
 class BucketManager
   attr_reader :buckets
 
   def initialize(rate:, capacity:, max_buckets:)
-    @buckets = Hash.new { |h, k| h[k] = { bucket: TokenBucket.new(rate: rate, capacity: capacity), mutex: Mutex.new, locked_until: nil } }
+    @buckets = Hash.new { |h, k| h[k] = BucketInfo.new(TokenBucket.new(rate: rate, capacity: capacity), Mutex.new, nil) }
     @max_buckets = max_buckets
   end
 
@@ -25,7 +37,7 @@ class BucketManager
 
   def bucket_stats(bucket_name)
     bucket_info = @buckets[bucket_name]
-    "tokens=#{bucket_info[:bucket].tokens},rate=#{bucket_info[:bucket].rate},capacity=#{bucket_info[:bucket].capacity}"
+    "tokens=#{bucket_info.bucket.tokens},rate=#{bucket_info.bucket.rate},capacity=#{bucket_info.bucket.capacity}"
   end
 
   def all_bucket_statuses
