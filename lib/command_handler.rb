@@ -101,6 +101,6 @@ class CommandHandler
   def handle_status
     # cram all this on one line, OK clients=2 buckets=3, bucket_name=XXX,rate=yyy.
     all_bucket_statuses = @bucket_manager.all_bucket_statuses
-    @client.puts "OK STATUS buckets=#{bucket_manager.buckets.count} #{all_bucket_statuses}"
+    @client.puts "OK STATUS buckets=#{@bucket_manager.buckets.count} #{all_bucket_statuses}"
   end
 end
