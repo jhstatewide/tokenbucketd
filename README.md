@@ -63,7 +63,7 @@ Then you can run the server using the following command:
 $ docker run -p 2000:2000 tokenbucketd --port 2000 --rate 10 --capacity 100 --gc-interval 60 --gc-threshold 300 --max-buckets 100
 ```
 
-## Client
+## Protocol
 
 The protocol is a line based protocol, which should be easy to integrate.
 You can find an example client in ./lib/client.rb, and examples for other languages in ./example_clients.
@@ -78,7 +78,13 @@ Clients can send commands to the server via TCP:
 - `LOCK bucket_name`: locks the specified bucket. This prevents other clients from consuming tokens from the bucket. If the bucket is already locked, the server responds with a `WAIT` message, along with how many seconds the client should wait before trying again.
 - `RELEASE bucket_name`: releases the specified bucket. This allows other clients to consume tokens from the bucket.
 
-If an error occurs, the server will return a message starting with `ERROR`.
+If an error occurs, the server will return a message starting with `ERROR`. 
+
+### Notes on concurrency
+
+The server is multithreaded, so it can handle multiple clients at the same time. However, the server is not thread-safe, so it is not possible to send multiple commands from the same client at the same time. If you need to do this, you can create multiple connections to the server.
+
+If more than one client tries to consume a token from the same bucket at the same time, the server will respond with a `WAIT` message to all but one of the clients. The client that had gotten the server mutex first will be able to consume a token, while the other clients will have to wait.s
 
 ## Contributing
 
