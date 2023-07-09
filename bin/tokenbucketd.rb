@@ -1,4 +1,4 @@
-require_relative '../lib/old/tokenbucket_server'
+require_relative '../lib/token_bucket_server'
 
 require 'getoptlong'
 
