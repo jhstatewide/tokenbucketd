@@ -2,7 +2,7 @@ require 'rspec'
 require_relative '../lib/token_bucket_server'
 
 RSpec.describe TokenBucketServer do
-  subject(:server) { described_class.new(port: 5000, rate: rate, capacity: capacity, gc_interval: 60, gc_threshold: 300, max_buckets: 100) }
+  subject(:server) { described_class.new(port: 57777, rate: rate, capacity: capacity, gc_interval: 60, gc_threshold: 300, max_buckets: 100) }
 
   let(:rate) { 1 }
   let(:capacity) { 1 }
