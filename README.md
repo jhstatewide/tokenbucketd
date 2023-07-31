@@ -2,6 +2,9 @@
 
 This is a Ruby project implementing a TCP server that uses the Token Bucket algorithm. The Token Bucket algorithm is a network traffic shaping algorithm that provides a way to control the amount of incoming data. The server can accept multiple connections, track different "buckets" and manage token rate and capacity on a per-bucket basis.
 
+## CI Status
+![GitHub CI](https://github.com/jhstatewide/tokenbucketd/actions/workflows/ruby.yml/badge.svg)
+
 ## Use Cases
 
 - Rate limiting
